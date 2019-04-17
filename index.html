@@ -1,0 +1,49 @@
+<html>
+<head>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs/dist/tf.min.js"> </script>
+<script src="https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/dist/face-api.min.js"></script>
+<script>
+async function getFaceDetector(){
+    // thank you, https://github.com/justadudewhohacks/face-api.js
+    const modelURL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js-models@master/tiny_face_detector/tiny_face_detector_model-weights_manifest.json';
+    await faceapi.loadTinyFaceDetectorModel(modelURL);
+    const net = (image, inputSize=320) => faceapi.tinyFaceDetector(
+        image, faceapi.TinyFaceDetectorOptions({inputSize})
+    );
+    return net;
+}
+
+const getCroppedImages = (imgObj, netOutput) => netOutput.map(({_box}) => {
+    const {_x, _y, _width, _height} = _box;
+    const subCanvas = document.createElement('canvas');
+    const subContext = subCanvas.getContext('2d');
+    subCanvas.width = _width;
+    subCanvas.height = _height;
+
+    const buffCanvas = document.createElement('canvas');
+    const buffContext = buffCanvas.getContext('2d');
+    buffCanvas.width = imgObj.width;
+    buffCanvas.height = imgObj.height;
+    buffContext.drawImage(imgObj, 0, 0);
+
+    subContext.drawImage(buffCanvas, _x, _y, _width, _height, 0, 0, _width, _height);
+    const img = document.createElement('img');
+    img.src = subCanvas.toDataURL();
+    return img;
+})
+</script>
+
+<script defer>
+getFaceDetector().then(net => {
+    faceapi.fetchImage('https://julianoks.github.io/photos/bella.jpg').then(me => {
+        net(me).then(boxes => {
+            const faces = getCroppedImages(me, boxes)
+            document.body.append(...faces)
+        })
+    })
+})
+</script>
+</head>
+<body>
+</body>
+</html>
