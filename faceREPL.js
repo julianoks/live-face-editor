@@ -32,27 +32,17 @@ const faceREPL = (function(){
         subCanvas.width = _width;
         subCanvas.height = _height;
 
-        const buffCanvas = document.createElement('canvas');
-        const buffContext = buffCanvas.getContext('2d');
-        buffCanvas.width = sourceCanvas.width;
-        buffCanvas.height = sourceCanvas.height;
-        buffContext.drawImage(sourceCanvas, 0, 0);
-
-        subContext.drawImage(buffCanvas, _x, _y, _width, _height, 0, 0, _width, _height);
+        subContext.drawImage(sourceCanvas, _x, _y, _width, _height, 0, 0, _width, _height);
         return subCanvas;
     })
 
     function patchesOntoFrame(frame, patches, bboxes){
-        const newFrame = document.createElement('canvas');
-        const newFrameContext = newFrame.getContext('2d');
-        newFrame.width = frame.width;
-        newFrame.height = frame.height;
-        newFrameContext.drawImage(frame, 0, 0);
+        const frameContext = frame.getContext('2d');
         patches.forEach((patch, i) => {
             const {_x, _y, _width, _height} = bboxes[i]._box;
-            newFrameContext.drawImage(patch, 0,0, _width, _height, _x, _y, _width, _height)
+            frameContext.drawImage(patch, 0,0, _width, _height, _x, _y, _width, _height)
         });
-        return newFrame;
+        return frame;
     }
 
     const tfImageProcesser = tfFunc => async (img) => {
