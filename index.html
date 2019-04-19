@@ -4,9 +4,17 @@
 <script src="https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/dist/face-api.min.js"></script>
 <script src="./faceREPL.js"></script>
 <script>
-const patchProcess = pixels => tf.mul(pixels, tf.randomUniform(pixels.shape));
-const frameCallback = f => {document.body.innerHTML = ''; document.body.append(f)};
-interval = faceREPL(patchProcess, frameCallback)
+tf.loadLayersModel('./autoencoder/saved_model/tfjs/model.json').then(model => {
+	const patchProcess = rawPatch => tf.tidy(() => {
+		let patch = tf.image.resizeNearestNeighbor(rawPatch, [64, 64]);
+		patch = tf.stack([patch]);
+		let processed =  model.predict([patch, tf.zeros([1, 4])])
+		processed = tf.unstack(processed)[0];
+		return tf.image.resizeNearestNeighbor(processed, rawPatch.shape.slice(0,2));
+	})
+	const frameCallback = f => {document.body.innerHTML = ''; document.body.append(f)};
+	const interval = faceREPL(patchProcess, frameCallback);
+})
 </script>
 
 </head>

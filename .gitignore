@@ -1,0 +1,5 @@
+.vscode
+autoencoder/celeba-dataset
+__pycache__
+.DS_Store
+keras_model.h5
