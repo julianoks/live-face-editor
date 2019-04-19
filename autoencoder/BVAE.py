@@ -39,7 +39,7 @@ class BVAE():
         return self
     
     def save(self, foldername='saved_model'):
-        foldername = os.path.join(os.path.abspath(__file__), foldername)
+        foldername = os.path.join(os.path.abspath(os.path.dirname(__file__)), foldername)
         os.mkdir(foldername)
         toPath = lambda *names: os.path.join(foldername, *names)
         os.mkdir(toPath('tfjs'))

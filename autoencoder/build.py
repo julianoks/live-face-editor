@@ -12,7 +12,8 @@ def get_celeba(new_img_size=[64,64]):
         image = tf.math.divide(tf.cast(image[0], 'float32'), 255.)
         return image
     # get dataset
-    folder_pattern = os.path.join('celeba-dataset', 'img_align_celeba', '*.jpg')
+    folder_pattern = os.path.join(os.path.abspath(os.path.dirname(__file__)),
+        'celeba-dataset', 'img_align_celeba', '*.jpg')
     dataset = tf.data.Dataset.list_files(folder_pattern)
     dataset = dataset.shuffle(2000).map(load_image)
     dataset = tf.data.Dataset.zip((dataset, dataset))
