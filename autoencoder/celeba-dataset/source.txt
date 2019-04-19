@@ -1,0 +1,2 @@
+I obtained this dataset from
+https://www.kaggle.com/jessicali9530/celeba-dataset#img_align_celeba.zip

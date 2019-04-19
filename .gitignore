@@ -1,5 +1,6 @@
-.vscode
-autoencoder/celeba-dataset
-__pycache__
+.vscode/
+__pycache__/
 .DS_Store
 keras_model.h5
+autoencoder/celeba-dataset/*
+!autoencoder/celeba-dataset/source.txt
