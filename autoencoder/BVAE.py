@@ -7,9 +7,10 @@ from tensorflow.keras.layers import Input, Dense, Lambda, LeakyReLU, Flatten, Re
 
 
 class BVAE():
-    def __init__(self, beta=5, latent_cont_dim=2,
-                 latent_disc_dim=6, hidden_dim=128, filters=(64, 64, 64),
+    def __init__(self, beta=1, latent_cont_dim=26,
+                 latent_disc_dim=6, hidden_dim=64, filters=(64, 32, 16),
                  learning_rate=1e-3, epochs=1, batch_size=32,
+                 examples_per_epoch=202599,
                  CONCRETE_TEMPERATURE=2/3, EPSILON=1e-8):
         self.opt = None
         self.model = None
@@ -26,6 +27,7 @@ class BVAE():
         self.batch_size = batch_size
         self.CONCRETE_TEMPERATURE = CONCRETE_TEMPERATURE
         self.EPSILON = EPSILON
+        self.examples_per_epoch = examples_per_epoch
 
     def fit(self, dataset):
         self.input_shape = tuple(dataset.output_shapes[0].as_list())
@@ -33,13 +35,14 @@ class BVAE():
         dataset = dataset.repeat(self.epochs).batch(self.batch_size)
         self.model.fit(dataset,
             epochs=self.epochs,
-            steps_per_epoch=202599 // self.batch_size,
+            steps_per_epoch=self.examples_per_epoch // self.batch_size,
             shuffle=True,
             )
         return self
     
     def save(self, foldername='saved_model'):
         foldername = os.path.join(os.path.abspath(os.path.dirname(__file__)), foldername)
+        subprocess.run(['rm', '-r', foldername])
         os.mkdir(foldername)
         toPath = lambda *names: os.path.join(foldername, *names)
         os.mkdir(toPath('tfjs'))
@@ -56,15 +59,15 @@ class BVAE():
         inputs = Input(shape=self.input_shape)
 
         Q_0 = Conv2D(self.input_shape[2], (2, 2), padding='same',
-                     activation=LeakyReLU(alpha=0.1))
+                     activation='relu')
         Q_1 = Conv2D(self.filters[0], (2, 2), padding='same', strides=(2, 2),
-                     activation=LeakyReLU(alpha=0.1))
+                     activation='relu')
         Q_2 = Conv2D(self.filters[1], (3, 3), padding='same', strides=(1, 1),
-                     activation=LeakyReLU(alpha=0.1))
+                     activation='relu')
         Q_3 = Conv2D(self.filters[2], (3, 3), padding='same', strides=(1, 1),
-                     activation=LeakyReLU(alpha=0.1))
+                     activation='relu')
         Q_4 = Flatten()
-        Q_5 = Dense(self.hidden_dim, activation=LeakyReLU(alpha=0.1))
+        Q_5 = Dense(self.hidden_dim, activation='relu')
         Q_funcs = (Q_0, Q_1, Q_2, Q_3, Q_4, Q_5)
         # Latent
         Q_z_mean = Dense(self.latent_cont_dim)
@@ -72,15 +75,15 @@ class BVAE():
         Q_c = Dense(self.latent_disc_dim, activation='softmax')
         # Decoder
         out_shape = (int(self.input_shape[0] / 2), int(self.input_shape[1] / 2), self.filters[2])
-        G_0 = Dense(self.hidden_dim, activation=LeakyReLU(alpha=0.1))
-        G_1 = Dense(int(np.prod(out_shape)), activation=LeakyReLU(alpha=0.1))
+        G_0 = Dense(self.hidden_dim, activation='relu')
+        G_1 = Dense(int(np.prod(out_shape)), activation='relu')
         G_2 = Reshape(out_shape)
         G_3 = Conv2DTranspose(self.filters[2], (3, 3), padding='same',
-                              strides=(1, 1), activation=LeakyReLU(alpha=0.1))
+                              strides=(1, 1), activation='relu')
         G_4 = Conv2DTranspose(self.filters[1], (3, 3), padding='same',
-                              strides=(1, 1), activation=LeakyReLU(alpha=0.1))
+                              strides=(1, 1), activation='relu')
         G_5 = Conv2DTranspose(self.filters[0], (2, 2), padding='valid',
-                              strides=(2, 2), activation=LeakyReLU(alpha=0.1))
+                              strides=(2, 2), activation='relu')
         G_6 = Conv2D(self.input_shape[2], (2, 2), padding='same',
                      strides=(1, 1), activation='sigmoid')
         G_funcs = (G_0, G_1, G_2, G_3, G_4, G_5, G_6)
