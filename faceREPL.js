@@ -1,5 +1,7 @@
 const faceREPL = (function(){
 
+    const BBOX_HAIR_RATIO = 0.5;
+
     async function getFaceDetector(){
         // thank you, https://github.com/justadudewhohacks/face-api.js
         const modelURL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js-models@master/tiny_face_detector/tiny_face_detector_model-weights_manifest.json';
@@ -57,6 +59,11 @@ const faceREPL = (function(){
     async function iterate(net, video, imgPatchProcess, frameCallback){
         const frame = video.getFrame();
         net(frame).then(boxes => {
+            boxes.forEach(({_box}, i) => {
+                const orig_y = _box._y;
+                boxes[i]._box._y = Math.max(0, _box._y - (_box._height * BBOX_HAIR_RATIO));
+                boxes[i]._box._height = _box.height + orig_y - boxes[i]._box._y;
+            })
             let patches = cropPatches(frame, boxes).map(imgPatchProcess);
             Promise.all(patches).then(patches => {
                 frameCallback(patchesOntoFrame(frame, patches, boxes));
