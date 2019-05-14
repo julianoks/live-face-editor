@@ -13,7 +13,7 @@ def get_celeba(new_img_size=[64,64]):
         return image, image
     # get dataset
     folder_pattern = os.path.join(os.path.abspath(os.path.dirname(__file__)),
-        'celeba-dataset', 'img_align_celeba', '*.jpg')
+        '..', 'celeba-dataset', 'img_align_celeba', '*.jpg')
     dataset = tf.data.Dataset.list_files(folder_pattern)
     dataset = dataset.map(load_image)
     return dataset.shuffle(2000)
@@ -22,4 +22,4 @@ def run(**kwargs):
     BVAE(**kwargs).fit(get_celeba()).save()
 
 if __name__ == "__main__":
-    run(epochs=1)
+    run(epochs=10, beta=1, examples_per_epoch=320)

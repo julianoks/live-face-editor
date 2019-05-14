@@ -2,5 +2,5 @@
 __pycache__/
 .DS_Store
 keras_model.h5
-autoencoder/celeba-dataset/*
-!autoencoder/celeba-dataset/source.txt
+celeba-dataset/*
+!celeba-dataset/source.txt
