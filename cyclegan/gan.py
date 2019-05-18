@@ -5,24 +5,36 @@ import tensorflow as tf
 import modules
 
 class gan(object):
-    def __init__(self):
+    def __init__(self, **kwargs):
+        # hyperparams
+        self.optimizer = tf.train.AdamOptimizer(1e-4)
         self.n_epochs = 10
         self.batch_size = 16
-        self.gen_steps_per_iteration = 3
-        self.discriminator_A = modules.discriminator()
-        self.discriminator_B = modules.discriminator()
-        self.generator_A2B = modules.generator()
-        self.generator_B2A = modules.generator()
+        self.disc_steps_per_gen_step = 2
+        # config tensorflow
+        self.image_shape = [64, 64, 3]
+        self.tensorboard_dir = 'tensorboard'
+        self.tf_config = tf.ConfigProto(log_device_placement=False)
+        # overide hyperparams / options
+        self.__dict__.update(kwargs)
+        # instantiate models
+        self.discriminator_A = modules.discriminator(input_shape=self.image_shape)
+        self.discriminator_B = modules.discriminator(input_shape=self.image_shape)
+        self.generator_A2B = modules.generator(input_shape=self.image_shape)
+        self.generator_B2A = modules.generator(input_shape=self.image_shape)
     
     def discriminator_loss(self, real_A, real_B):
         MSE = lambda a,b: tf.reduce_mean((a-b)**2)
-        # calculate values
+        # model outputs
         fake_A = self.generator_B2A(real_B)
         fake_B = self.generator_A2B(real_A)
         fooled_A = self.discriminator_A(fake_A)
         fooled_B = self.discriminator_B(fake_B)
         unfooled_A = self.discriminator_A(real_A)
         unfooled_B = self.discriminator_B(real_B)
+        # log some images
+        tf.summary.image("A2B(A)", fake_B, max_outputs=1)
+        tf.summary.image("B2A(B)", fake_A, max_outputs=1)
         # calculate losses
         fooled_A = MSE(fooled_A, tf.zeros_like(fooled_A))
         fooled_B = MSE(fooled_B, tf.zeros_like(fooled_B))
@@ -34,7 +46,7 @@ class gan(object):
     def generator_loss(self, real_A, real_B):
         MSE = lambda a,b: tf.reduce_mean((a-b)**2)
         MAE = lambda a,b: tf.reduce_mean(tf.abs(a-b))
-        # calculate values
+        # model outputs
         fake_A = self.generator_B2A(real_B)
         fake_B = self.generator_A2B(real_A)
         fooled_A = self.discriminator_A(fake_A)
@@ -54,17 +66,22 @@ class gan(object):
         return tf.reduce_mean(fooled_A + fooled_B + iden_A + iden_B + (10 * (recon_A + recon_B)))
 
     def fit(self, fnames, classes):
-        # TODO: visualize progress with tensorboard
+        try: subprocess.run(['rm', '-r', self.tensorboard_dir])
+        except: pass
+        tboard_writer = tf.summary.FileWriter(self.tensorboard_dir)
         dataset = self.get_dataset(fnames, classes).make_initializable_iterator()
         As, Bs = dataset.get_next()
         gen_step = self.fit_generator_step(As, Bs)
         disc_step = self.fit_discriminator_step(As, Bs)
-        with tf.Session() as sess:
+        with tf.Session(config=self.tf_config) as sess:
             sess.run([dataset.initializer, tf.global_variables_initializer()])
+            # tboard_writer.add_graph(sess.graph)
             for epoch in range(self.n_epochs):
                 for step in range(len(fnames) // self.batch_size):
-                    print("Iteration {} / {}".format(step, len(fnames) // self.batch_size))
-                    sess.run([gen_step, disc_step])
+                    do_gen_step = step%(self.disc_steps_per_gen_step + 1) == 0
+                    train_step = gen_step if do_gen_step else disc_step
+                    summary, _ = sess.run([tf.summary.merge_all(), train_step])
+                    tboard_writer.add_summary(summary, step)
                 self.save()
         return self
     
@@ -72,25 +89,27 @@ class gan(object):
         g_loss = self.generator_loss(As, Bs)
         A2B_vars = self.generator_A2B.trainable_variables
         B2A_vars = self.generator_B2A.trainable_variables
-        # TODO: track trainable weights using standard Keras API
+        # TODO: track trainable weights using Keras API
         A2B_vars = sum(sum([[b._trainable_weights for b in l2] for l2 in [l1.fns if 'fns' in l1.__dict__ else [] for l1 in self.generator_A2B.layers]], []), [])
         B2A_vars = sum(sum([[b._trainable_weights for b in l2] for l2 in [l1.fns if 'fns' in l1.__dict__ else [] for l1 in self.generator_B2A.layers]], []), [])
-        return tf.train.AdamOptimizer().minimize(g_loss, var_list=A2B_vars+B2A_vars)
+        tf.summary.scalar('generator_loss', g_loss)
+        return self.optimizer.minimize(g_loss, var_list=A2B_vars+B2A_vars)
     
     def fit_discriminator_step(self, As, Bs):
         d_loss = self.discriminator_loss(As, Bs)
         A_vars = self.discriminator_A.trainable_variables
         B_vars = self.discriminator_B.trainable_variables
-        # TODO: track trainable weights using standard Keras API
+        # TODO: track trainable weights using Keras API
         A_vars = sum(sum([[b._trainable_weights for b in l2] for l2 in [l1.fns if 'fns' in l1.__dict__ else [] for l1 in self.discriminator_A.layers]], []), [])
         B_vars = sum(sum([[b._trainable_weights for b in l2] for l2 in [l1.fns if 'fns' in l1.__dict__ else [] for l1 in self.discriminator_B.layers]], []), [])
-        return tf.train.AdamOptimizer().minimize(d_loss, var_list=A_vars+B_vars)
+        tf.summary.scalar('discriminator_loss', d_loss)
+        return self.optimizer.minimize(d_loss, var_list=A_vars+B_vars)
 
     def get_dataset(self, fnames, classes):
         def load_image(file):
             image = tf.image.decode_jpeg(tf.read_file(file), channels=3)
             image = tf.expand_dims(image, axis=0)
-            image = tf.image.resize_nearest_neighbor(image, [64, 64])
+            image = tf.image.resize_nearest_neighbor(image, self.image_shape[:2])
             image = tf.divide(tf.cast(image[0], 'float32'), 255.)
             return image
         fnames = np.array(fnames)

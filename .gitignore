@@ -2,5 +2,6 @@
 __pycache__/
 .DS_Store
 keras_model.h5
+tensorboard/
 celeba-dataset/*
 !celeba-dataset/source.txt
