@@ -17,6 +17,7 @@ class conv_block(tfkl.Layer):
             self.fns.append(tfkl.BatchNormalization(virtual_batch_size=1))
         if isinstance(self.lrelu, float) and self.lrelu >= 0:
             self.fns.append(tfkl.LeakyReLU(alpha=self.lrelu))
+        super(conv_block, self).build(input_shape)
     
     def call(self, x):
         for fn in self.fns:
@@ -39,6 +40,7 @@ class deconv_block(tfkl.Layer):
             self.fns.append(tfkl.BatchNormalization(virtual_batch_size=1))
         if isinstance(self.lrelu, float) and self.lrelu >= 0:
             self.fns.append(tfkl.LeakyReLU(alpha=self.lrelu))
+        super(deconv_block, self).build(input_shape)
     
     def call(self, x):
         for fn in self.fns:
@@ -58,6 +60,7 @@ class resnet_block(tfkl.Layer):
             tfkl.ZeroPadding2D([1, 1]),
             conv_block(int(input_shape[-1]), 3, 1, lrelu=False),
         ]
+        super(resnet_block, self).build(input_shape)
     
     def call(self, x):
         net = x
@@ -66,51 +69,26 @@ class resnet_block(tfkl.Layer):
         return tfkl.LeakyReLU(alpha=0)(tfkl.Add()([x, net]))
 
 
+def generator(n_blocks=5):
+    return tfk.models.Sequential([
+        tfkl.ZeroPadding2D([3, 3], input_shape=(64,64,3)),
+        conv_block(32, 7, 1, "VALID"),
+        conv_block(64, 7, 2, "SAME"),
+        conv_block(128, 7, 2, "SAME"),
+        *[resnet_block() for _ in range(n_blocks)],
+        deconv_block(64, 3, 2, "SAME"),
+        deconv_block(32, 3, 2, "SAME"),
+        deconv_block(3, 7, 1, "SAME", lrelu=False),
+        tfkl.Activation('tanh')
+    ])
 
-class generator(tfkl.Layer):
-    def __init__(self, n_blocks=5, **kwargs):
-        self.n_blocks = n_blocks
-        super(generator, self).__init__(**kwargs)
-    
-    def build(self, shape):
-        self.image_shape = [int(x) for x in shape[1:]]
-        self.fns = [
-            tfkl.ZeroPadding2D([3, 3]),
-            conv_block(32, 7, 1, "VALID"),
-            conv_block(64, 7, 2, "SAME"),
-            conv_block(128, 7, 2, "SAME"),
-            *[resnet_block() for _ in range(self.n_blocks)],
-            deconv_block(64, 3, 2, "SAME"),
-            deconv_block(32, 3, 2, "SAME"),
-            deconv_block(3, 7, 1, "SAME", lrelu=False),
-            tfkl.Activation('tanh')
-        ]
-    
-    def call(self, x):
-        for fn in self.fns:
-            x = fn(x)
-        return x
-
-    def compute_output_shape(self, input_shape):
-        return input_shape
-
-
-class discriminator(tfkl.Layer):
-    def __init__(self, **kwargs):
-        super(discriminator, self).__init__(**kwargs)
-    
-    def build(self, shape):
-        self.fns = [
-            conv_block(64, 4, 2, "SAME", norm=False, lrelu=0.2),
-            conv_block(128, 4, 2, "SAME", lrelu=0.2),
-            conv_block(256, 4, 2, "SAME", lrelu=0.2),
-            conv_block(512, 4, 2, "SAME", lrelu=0.2),
-            conv_block(512, 2, 2, "VALID", lrelu=0.2),
-            conv_block(1, 2, 1, "VALID", norm=False, lrelu=False),
-            tfkl.Flatten()
-        ]
-    
-    def call(self, x):
-        for fn in self.fns:
-            x = fn(x)
-        return x
+def discriminator():
+    return tfk.models.Sequential([
+        conv_block(64, 4, 2, "SAME", norm=False, lrelu=0.2, input_shape=(64,64,3)),
+        conv_block(128, 4, 2, "SAME", lrelu=0.2),
+        conv_block(256, 4, 2, "SAME", lrelu=0.2),
+        conv_block(512, 4, 2, "SAME", lrelu=0.2),
+        conv_block(512, 2, 2, "VALID", lrelu=0.2),
+        conv_block(1, 2, 1, "VALID", norm=False, lrelu=False),
+        tfkl.Flatten()
+    ])
