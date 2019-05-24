@@ -2,6 +2,12 @@ import tensorflow as tf
 tfk = tf.keras
 tfkl = tfk.layers
 
+def build_propagate_trainable_vars(self, input_shape):
+    self.call(tfkl.Input(input_shape[1:]))
+    for f in self.fns:
+        for w in f.trainable_weights:
+            self.trainable_weights.append(w)
+
 class conv_block(tfkl.Layer):
     def __init__(self, filters=32, kernel_size=2, strides=1, padding="VALID",
         norm=True, lrelu=0, **kwargs):
@@ -17,6 +23,7 @@ class conv_block(tfkl.Layer):
             self.fns.append(tfkl.BatchNormalization(virtual_batch_size=1))
         if isinstance(self.lrelu, float) and self.lrelu >= 0:
             self.fns.append(tfkl.LeakyReLU(alpha=self.lrelu))
+        build_propagate_trainable_vars(self, input_shape)
         super(conv_block, self).build(input_shape)
     
     def call(self, x):
@@ -40,6 +47,7 @@ class deconv_block(tfkl.Layer):
             self.fns.append(tfkl.BatchNormalization(virtual_batch_size=1))
         if isinstance(self.lrelu, float) and self.lrelu >= 0:
             self.fns.append(tfkl.LeakyReLU(alpha=self.lrelu))
+        build_propagate_trainable_vars(self, input_shape)
         super(deconv_block, self).build(input_shape)
     
     def call(self, x):
@@ -60,6 +68,7 @@ class resnet_block(tfkl.Layer):
             tfkl.ZeroPadding2D([1, 1]),
             conv_block(int(input_shape[-1]), 3, 1, lrelu=False),
         ]
+        build_propagate_trainable_vars(self, input_shape)
         super(resnet_block, self).build(input_shape)
     
     def call(self, x):

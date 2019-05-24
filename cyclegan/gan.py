@@ -20,8 +20,8 @@ class gan(object):
         # instantiate models
         self.discriminator_A = modules.discriminator(input_shape=self.image_shape)
         self.discriminator_B = modules.discriminator(input_shape=self.image_shape)
-        self.generator_A2B = modules.generator(input_shape=self.image_shape)
-        self.generator_B2A = modules.generator(input_shape=self.image_shape)
+        self.generator_A2B = modules.generator(1, input_shape=self.image_shape)
+        self.generator_B2A = modules.generator(1, input_shape=self.image_shape)
     
     def discriminator_loss(self, real_A, real_B):
         MSE = lambda a,b: tf.reduce_mean((a-b)**2)
@@ -33,7 +33,9 @@ class gan(object):
         unfooled_A = self.discriminator_A(real_A)
         unfooled_B = self.discriminator_B(real_B)
         # log some images
+        tf.summary.image("A", real_A, max_outputs=1)
         tf.summary.image("A2B(A)", fake_B, max_outputs=1)
+        tf.summary.image("B", real_B, max_outputs=1)
         tf.summary.image("B2A(B)", fake_A, max_outputs=1)
         # calculate losses
         fooled_A = MSE(fooled_A, tf.zeros_like(fooled_A))
@@ -89,9 +91,6 @@ class gan(object):
         g_loss = self.generator_loss(As, Bs)
         A2B_vars = self.generator_A2B.trainable_variables
         B2A_vars = self.generator_B2A.trainable_variables
-        # TODO: track trainable weights using Keras API
-        A2B_vars = sum(sum([[b._trainable_weights for b in l2] for l2 in [l1.fns if 'fns' in l1.__dict__ else [] for l1 in self.generator_A2B.layers]], []), [])
-        B2A_vars = sum(sum([[b._trainable_weights for b in l2] for l2 in [l1.fns if 'fns' in l1.__dict__ else [] for l1 in self.generator_B2A.layers]], []), [])
         tf.summary.scalar('generator_loss', g_loss)
         return self.optimizer.minimize(g_loss, var_list=A2B_vars+B2A_vars)
     
