@@ -10,10 +10,11 @@ class gan(object):
         self.optimizer = tf.train.AdamOptimizer(1e-4)
         self.n_epochs = 10
         self.batch_size = 16
-        self.disc_steps_per_gen_step = 2
+        self.disc_steps_per_gen_step = 3
         # config tensorflow
         self.image_shape = [64, 64, 3]
         self.tensorboard_dir = 'tensorboard'
+        self.summary_period = 5 # frequency of tboard logging
         self.tf_config = tf.ConfigProto(log_device_placement=False)
         # overide hyperparams / options
         self.__dict__.update(kwargs)
@@ -65,10 +66,13 @@ class gan(object):
         recon_A = MAE(recon_A, real_A)
         recon_B = MAE(recon_B, real_B)
         # aggregate loss with weighted sum
-        return tf.reduce_mean(fooled_A + fooled_B + iden_A + iden_B + (10 * (recon_A + recon_B)))
+        return tf.reduce_mean(
+            (2 * (fooled_A + fooled_B))
+            + (10 * (iden_A + iden_B))
+            + (2 * (recon_A + recon_B)))
 
     def fit(self, fnames, classes):
-        try: subprocess.run(['rm', '-r', self.tensorboard_dir])
+        try: tf.gfile.DeleteRecursively(self.tensorboard_dir)
         except: pass
         tboard_writer = tf.summary.FileWriter(self.tensorboard_dir)
         dataset = self.get_dataset(fnames, classes).make_initializable_iterator()
@@ -82,8 +86,11 @@ class gan(object):
                 for step in range(len(fnames) // self.batch_size):
                     do_gen_step = step%(self.disc_steps_per_gen_step + 1) == 0
                     train_step = gen_step if do_gen_step else disc_step
-                    summary, _ = sess.run([tf.summary.merge_all(), train_step])
-                    tboard_writer.add_summary(summary, step)
+                    if self.summary_period and (step % self.summary_period) == 0:
+                        summary, _ = sess.run([tf.summary.merge_all(), train_step])
+                        tboard_writer.add_summary(summary, step)
+                    else:
+                        sess.run([train_step])
                 self.save()
         return self
     
@@ -98,9 +105,6 @@ class gan(object):
         d_loss = self.discriminator_loss(As, Bs)
         A_vars = self.discriminator_A.trainable_variables
         B_vars = self.discriminator_B.trainable_variables
-        # TODO: track trainable weights using Keras API
-        A_vars = sum(sum([[b._trainable_weights for b in l2] for l2 in [l1.fns if 'fns' in l1.__dict__ else [] for l1 in self.discriminator_A.layers]], []), [])
-        B_vars = sum(sum([[b._trainable_weights for b in l2] for l2 in [l1.fns if 'fns' in l1.__dict__ else [] for l1 in self.discriminator_B.layers]], []), [])
         tf.summary.scalar('discriminator_loss', d_loss)
         return self.optimizer.minimize(d_loss, var_list=A_vars+B_vars)
 
@@ -123,11 +127,10 @@ class gan(object):
     def save(self, foldername='saved_models'):
         this_dir_path = os.path.abspath(os.path.dirname(__file__))
         foldername = os.path.join(this_dir_path, foldername)
-        subprocess.run(['rm', '-r', foldername])
-        os.mkdir(foldername)
         toPath = lambda *names: os.path.join(foldername, *names)
-        os.mkdir(toPath('A2B'))
-        os.mkdir(toPath('B2A'))
+        tf.gfile.DeleteRecursively(foldername)
+        for folder in (foldername, toPath('A2B'), toPath('B2A')):
+            tf.gfile.MkDir(foldername)
         # save to keras and tfjs
         generators = {'A2B': self.generator_A2B, 'B2A': self.generator_B2A}
         for name, model in generators.items():

@@ -5,8 +5,7 @@ tfkl = tfk.layers
 def build_propagate_trainable_vars(self, input_shape):
     self.call(tfkl.Input(input_shape[1:]))
     for f in self.fns:
-        for w in f.trainable_weights:
-            self.trainable_weights.append(w)
+        self.trainable_weights.extend(f.trainable_weights)
 
 class conv_block(tfkl.Layer):
     def __init__(self, filters=32, kernel_size=2, strides=1, padding="VALID",
@@ -78,7 +77,7 @@ class resnet_block(tfkl.Layer):
         return tfkl.LeakyReLU(alpha=0)(tfkl.Add()([x, net]))
 
 
-def generator(n_blocks=5, input_shape=(64, 64, 3)):
+def generator(n_blocks=1, input_shape=(64, 64, 3)):
     return tfk.models.Sequential([
         tfkl.ZeroPadding2D([3, 3], input_shape=input_shape),
         conv_block(32, 7, 1, "VALID"),
