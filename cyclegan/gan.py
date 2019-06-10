@@ -122,7 +122,10 @@ class gan(object):
         Bs = (tf.data.Dataset.from_tensor_slices(fnames[classes != 1])
                 .shuffle(2000)
                 .map(load_image))
-        return tf.data.Dataset.zip((As, Bs)).batch(self.batch_size).prefetch(2000)
+        return (tf.data.Dataset.zip((As, Bs))
+            .repeat()
+            .batch(self.batch_size)
+            .prefetch(2000))
 
     def save(self, foldername='saved_models'):
         this_dir_path = os.path.abspath(os.path.dirname(__file__))
