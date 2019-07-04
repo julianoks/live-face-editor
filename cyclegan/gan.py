@@ -31,8 +31,8 @@ class gan(object):
         fake_B = self.generator_A2B(real_A)
         fooled_A = self.discriminator_A(fake_A)
         fooled_B = self.discriminator_B(fake_B)
-        unfooled_A = self.discriminator_A(real_A)
-        unfooled_B = self.discriminator_B(real_B)
+        not_fooled_A = self.discriminator_A(real_A)
+        not_fooled_B = self.discriminator_B(real_B)
         # log some images
         tf.summary.image("A", real_A, max_outputs=1)
         tf.summary.image("A2B(A)", fake_B, max_outputs=1)
@@ -41,10 +41,10 @@ class gan(object):
         # calculate losses
         fooled_A = MSE(fooled_A, tf.zeros_like(fooled_A))
         fooled_B = MSE(fooled_B, tf.zeros_like(fooled_B))
-        unfooled_A = MSE(unfooled_A, tf.ones_like(unfooled_A))
-        unfooled_B = MSE(unfooled_B, tf.ones_like(unfooled_B))
+        not_fooled_A = MSE(not_fooled_A, tf.ones_like(not_fooled_A))
+        not_fooled_B = MSE(not_fooled_B, tf.ones_like(not_fooled_B))
         # aggregate loss with standard sum
-        return fooled_A + fooled_B + unfooled_A + unfooled_B
+        return fooled_A + fooled_B + not_fooled_A + not_fooled_B
 
     def generator_loss(self, real_A, real_B):
         MSE = lambda a,b: tf.reduce_mean((a-b)**2)
@@ -67,9 +67,9 @@ class gan(object):
         recon_B = MAE(recon_B, real_B)
         # aggregate loss with weighted sum
         return tf.reduce_mean(
-            (2 * (fooled_A + fooled_B))
-            + (10 * (iden_A + iden_B))
-            + (2 * (recon_A + recon_B)))
+            (1 * (fooled_A + fooled_B))
+            + (1 * (iden_A + iden_B))
+            + (0.1 * (recon_A + recon_B)))
 
     def fit(self, fnames, classes):
         try: tf.gfile.DeleteRecursively(self.tensorboard_dir)
@@ -131,9 +131,10 @@ class gan(object):
         this_dir_path = os.path.abspath(os.path.dirname(__file__))
         foldername = os.path.join(this_dir_path, foldername)
         toPath = lambda *names: os.path.join(foldername, *names)
-        tf.gfile.DeleteRecursively(foldername)
+        try: tf.gfile.DeleteRecursively(foldername)
+        except: pass
         for folder in (foldername, toPath('A2B'), toPath('B2A')):
-            tf.gfile.MkDir(foldername)
+            tf.gfile.MkDir(folder)
         # save to keras and tfjs
         generators = {'A2B': self.generator_A2B, 'B2A': self.generator_B2A}
         for name, model in generators.items():
