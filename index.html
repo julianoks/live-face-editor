@@ -4,12 +4,29 @@
 <script src="https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/dist/face-api.min.js"></script>
 <script src="./faceREPL.js"></script>
 <script>
-tf.loadLayersModel('./autoencoder/saved_model/tfjs/model.json').then(model => {
+class oneMinusLayer extends tf.layers.Layer {
+    constructor(config) { super(config); }
+    static className = 'oneMinusLayer';
+    static mergeFunction = function(inputs) {
+        return tf.tidy(() => {
+            return tf.sub(1, inputs[0]);
+        });
+    }
+}
+tf.serialization.registerClass(oneMinusLayer);
+
+const models = {
+    'autoencoder': './autoencoder/saved_model/tfjs/model.json',
+    'GAN_A2B': './cyclegan/saved_models/A2B/tfjs/model.json',
+    'GAN_B2A': './cyclegan/saved_models/B2A/tfjs/model.json',
+}
+
+tf.loadLayersModel(models['GAN_A2B'], {strict: true}).then(model => {
 	const patchProcess = rawPatch => tf.tidy(() => {
 		let patch = tf.image.resizeNearestNeighbor(rawPatch, [64, 64]);
 		patch = tf.stack([patch]);
-		let processed =  model.predict([patch, tf.zeros([1, 4])])
-		processed = tf.unstack(processed)[0];
+		let processed =  model.predict([patch]);
+        processed = tf.unstack(processed)[0];
 		return tf.image.resizeNearestNeighbor(processed, rawPatch.shape.slice(0,2));
 	})
 	const frameCallback = f => {document.body.innerHTML = ''; document.body.append(f)};
