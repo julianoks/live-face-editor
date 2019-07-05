@@ -1,20 +1,21 @@
 import os
-import subprocess
 import numpy as np
 import tensorflow as tf
+import tensorflowjs
 import modules
 
 class gan(object):
     def __init__(self, **kwargs):
         # hyperparams
-        self.optimizer = tf.train.AdamOptimizer(1e-4)
+        self.disc_optimizer = tf.train.AdamOptimizer(1e-4)
+        self.gen_optimizer = tf.train.AdamOptimizer(1e-4)
         self.n_epochs = 10
         self.batch_size = 16
         self.disc_steps_per_gen_step = 3
         # config tensorflow
         self.image_shape = [64, 64, 3]
         self.tensorboard_dir = 'tensorboard'
-        self.summary_period = 5 # frequency of tboard logging
+        self.summary_period = 100 # frequency of tboard logging
         self.tf_config = tf.ConfigProto(log_device_placement=False)
         # overide hyperparams / options
         self.__dict__.update(kwargs)
@@ -23,6 +24,9 @@ class gan(object):
         self.discriminator_B = modules.discriminator(input_shape=self.image_shape)
         self.generator_A2B = modules.generator(1, input_shape=self.image_shape)
         self.generator_B2A = modules.generator(1, input_shape=self.image_shape)
+        for model in (self.discriminator_A, self.discriminator_B, self.generator_A2B, self.generator_B2A):
+            # 'sgd' and 'mse' are not actually used, just placeholders for compiling
+            model.compile('sgd', 'mse')
     
     def discriminator_loss(self, real_A, real_B):
         MSE = lambda a,b: tf.reduce_mean((a-b)**2)
@@ -99,23 +103,30 @@ class gan(object):
         A2B_vars = self.generator_A2B.trainable_variables
         B2A_vars = self.generator_B2A.trainable_variables
         tf.summary.scalar('generator_loss', g_loss)
-        return self.optimizer.minimize(g_loss, var_list=A2B_vars+B2A_vars)
+        return self.gen_optimizer.minimize(g_loss, var_list=A2B_vars+B2A_vars)
     
     def fit_discriminator_step(self, As, Bs):
         d_loss = self.discriminator_loss(As, Bs)
         A_vars = self.discriminator_A.trainable_variables
         B_vars = self.discriminator_B.trainable_variables
         tf.summary.scalar('discriminator_loss', d_loss)
-        return self.optimizer.minimize(d_loss, var_list=A_vars+B_vars)
+        return self.disc_optimizer.minimize(d_loss, var_list=A_vars+B_vars)
 
     def get_dataset(self, fnames, classes):
+        ''' Gets dataset.
+        Args:
+            fnames: a list of image filenames
+            classes: a list of classes. `fnames[classes == 1]` are assigned class "A"
+        '''
+        fnames = np.array(fnames)
+        classes = np.array(classes)
+        assert len(classes) == len(fnames)
         def load_image(file):
             image = tf.image.decode_jpeg(tf.read_file(file), channels=3)
             image = tf.expand_dims(image, axis=0)
             image = tf.image.resize_nearest_neighbor(image, self.image_shape[:2])
             image = tf.divide(tf.cast(image[0], 'float32'), 255.)
             return image
-        fnames = np.array(fnames)
         As = (tf.data.Dataset.from_tensor_slices(fnames[classes == 1])
                 .shuffle(2000)
                 .map(load_image))
@@ -138,7 +149,5 @@ class gan(object):
         # save to keras and tfjs
         generators = {'A2B': self.generator_A2B, 'B2A': self.generator_B2A}
         for name, model in generators.items():
-            model.save(toPath(name, 'keras_model.h5'))
-            subprocess.run(['tensorflowjs_converter', '--input_format=keras', \
-                toPath(name, 'keras_model.h5'), toPath(name, 'tfjs')])
+            tensorflowjs.converters.save_keras_model(model, toPath(name, 'tfjs'))
         return self
