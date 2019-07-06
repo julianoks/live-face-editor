@@ -3,7 +3,8 @@ tfk = tf.keras
 tfkl = tfk.layers
 
 def instance_normalization(x):
-    # TODO implement instance normalization
+    # TODO implement true instance normalization
+    #return tfkl.BatchNormalization(virtual_batch_size=1)(x)
     return x
 
 class oneMinusLayer(tfkl.Layer):
@@ -45,14 +46,14 @@ def resnet_block(net):
     return net
 
 
-def generator(n_blocks=1, input_shape=(64, 64, 3)):
+def generator(input_shape=(64, 64, 3), n_resnet_blocks=1):
     generator_input = tfkl.Input(input_shape)
 
     trunk = generator_input
     trunk =  conv_block(trunk, 16, 2, 2, "VALID")
     trunk = conv_block(trunk, 32, 2, 2, "SAME")
     trunk = conv_block(trunk, 32, 1, 1, "SAME")
-    for _ in range(n_blocks):
+    for _ in range(n_resnet_blocks):
         trunk = resnet_block(trunk)
     trunk = deconv_block(trunk, 16, 4, 2, "SAME", norm=True)
     trunk = deconv_block(trunk, 8, 4, 2, "SAME")
