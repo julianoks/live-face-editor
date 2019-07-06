@@ -1,0 +1,16 @@
+{
+    "disc_learning_rate": 0.0001,
+    "celeba_dir": "/Users/julian/Desktop/live-face-editor/cyclegan/../celeba-dataset",
+    "tf_config_proto": "{\"log_device_placement\": false}",
+    "saved_models_dir": "/Users/julian/Desktop/live-face-editor/cyclegan/saved_models",
+    "image_shape": "[64, 64, 3]",
+    "disc_steps_per_gen_step": 3,
+    "gen_learning_rate": 0.0001,
+    "feature": "Black_Hair",
+    "tensorboard_dir": "/Users/julian/Desktop/live-face-editor/cyclegan/tensorboard",
+    "tensorboard_summary_period": 1,
+    "tfjs_saving_period": 1,
+    "n_epochs": 10,
+    "batch_size": 16,
+    "generator_n_resnet_blocks": 1
+}

@@ -26,7 +26,8 @@ class gan(object):
 
         ('tensorboard_summary_period', 100),
         ('tfjs_saving_period', 1000),
-        ('tf_config_proto', '{"log_device_placement": false}')
+        ('tf_config_proto', '{"log_device_placement": false}'),
+        ('argparse_args', {})
     ])
 
 
@@ -202,10 +203,9 @@ class gan(object):
         for folder in (self.saved_models_dir, to_path('A2B'), to_path('B2A')):
             tf.gfile.MkDir(folder)
 
-        # save model hyperparameters (for the sake of provenance)
-        with tf.gfile.GFile(to_path('GAN_hyperparams.json'), 'w') as f:
-            hyperparams = {k:self.__dict__[k] for k in self.default_hyperparams.keys()}
-            f.write(json.dumps(hyperparams, indent=4))
+        # save argparse args (for the sake of provenance)
+        with tf.gfile.GFile(to_path('argparse_args.json'), 'w') as f:
+            f.write(json.dumps(self.argparse_args, indent=4))
 
         # save to keras and tfjs
         generators = {'A2B': self.generator_A2B, 'B2A': self.generator_B2A}

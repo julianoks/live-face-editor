@@ -31,12 +31,12 @@ def build_argparser():
     parser.add_argument('--saved_models_dir', default=to_path('saved_models'), help='Path to save models in')
 
     for k, v in gan.default_hyperparams.items():
-        if k not in ('tensorboard_dir', 'saved_models_dir'):
+        if k not in ('tensorboard_dir', 'saved_models_dir', 'argparse_args'):
             parser.add_argument('--{}'.format(k), default=v, type=type(v), help='Default value = `{}`'.format(v))
 
     return parser
     
 
 if __name__ == "__main__":
-    args = build_argparser().parse_args()
-    run(**args.__dict__)
+    args = build_argparser().parse_args().__dict__
+    run(argparse_args=args, **args)
