@@ -24,10 +24,14 @@ class gan(object):
         ('gen_learning_rate', 1e-4),
         ('generator_n_resnet_blocks', 1),
 
+        ('lambda_1', 1),
+        ('lambda_2', 0.1),
+        ('lambda_3', 0.01),
+
         ('tensorboard_summary_period', 100),
         ('tfjs_saving_period', 1000),
         ('tf_config_proto', '{"log_device_placement": false}'),
-        ('argparse_args', {})
+        ('argparse_args', {}),
     ])
 
 
@@ -107,9 +111,9 @@ class gan(object):
 
         # aggregate loss with weighted sum
         return tf.reduce_mean(
-            (1 * (fooled_A + fooled_B))
-            + (1 * (iden_A + iden_B))
-            + (0.00001 * (recon_A + recon_B)))
+            (self.lambda_1 * (fooled_A + fooled_B))
+            + (self.lambda_2 * (iden_A + iden_B))
+            + (self.lambda_3 * (recon_A + recon_B)))
 
 
     def fit(self, fnames, classes):
