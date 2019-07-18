@@ -19,14 +19,14 @@ class gan(object):
         ('n_epochs', 10),
         ('batch_size', 16),
 
-        ('disc_steps_per_gen_step', 3),
+        ('disc_steps_per_gen_step', 1),
         ('disc_learning_rate', 1e-4),
         ('gen_learning_rate', 1e-4),
         ('generator_n_resnet_blocks', 1),
 
-        ('lambda_1', 1),
-        ('lambda_2', 0.1),
-        ('lambda_3', 0.01),
+        ('lambda_1', 1),  # generator's discriminator loss
+        ('lambda_2', 10), # generator's cyclic loss
+        ('lambda_3', 0),  # generator's identity loss
 
         ('tensorboard_summary_period', 100),
         ('tfjs_saving_period', 1000),
@@ -90,30 +90,34 @@ class gan(object):
     def generator_loss(self, real_A, real_B):
         MSE = lambda a,b: tf.reduce_mean((a-b)**2)
         MAE = lambda a,b: tf.reduce_mean(tf.abs(a-b))
-
-        # model outputs
+        
         fake_A = self.generator_B2A(real_B)
         fake_B = self.generator_A2B(real_A)
+
+        # discriminator loss
         fooled_A = self.discriminator_A(fake_A)
         fooled_B = self.discriminator_B(fake_B)
-        recon_A = self.generator_B2A(fake_B)
-        recon_B = self.generator_A2B(fake_A)
-        iden_A = self.generator_B2A(real_A)
-        iden_B = self.generator_A2B(real_B)
+        disc_loss = MSE(fooled_A, tf.ones_like(fooled_A))
+        disc_loss += MSE(fooled_A, tf.ones_like(fooled_B))
 
-        # calculate losses
-        fooled_A = MSE(fooled_A, tf.ones_like(fooled_A))
-        fooled_B = MSE(fooled_A, tf.ones_like(fooled_B))
-        iden_A = MAE(iden_A, real_A)
-        iden_B = MAE(iden_B, real_B)
-        recon_A = MAE(recon_A, real_A)
-        recon_B = MAE(recon_B, real_B)
+        # cyclic loss
+        cycle_A = self.generator_B2A(fake_B)
+        cycle_B = self.generator_A2B(fake_A)
+        cyclic_loss = MAE(cycle_A, real_A) + MAE(cycle_B, real_B)
+
+        # (optional) identity loss
+        if self.lambda_3:
+            iden_A = self.generator_B2A(real_A)
+            iden_B = self.generator_A2B(real_B)
+            iden_loss = MAE(iden_A, real_A) + MAE(iden_B, real_B)
 
         # aggregate loss with weighted sum
-        return tf.reduce_mean(
-            (self.lambda_1 * (fooled_A + fooled_B))
-            + (self.lambda_2 * (iden_A + iden_B))
-            + (self.lambda_3 * (recon_A + recon_B)))
+        loss = self.lambda_1 * disc_loss
+        loss += self.lambda_2 * cyclic_loss
+        if self.lambda_3:
+            loss += self.lambda_3 * iden_loss
+        
+        return tf.reduce_mean(loss)
 
 
     def fit(self, fnames, classes):

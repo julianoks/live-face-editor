@@ -60,16 +60,16 @@ def generator(input_shape=(64, 64, 3), n_resnet_blocks=1):
 
     net = generator_input
     # encode
-    net = conv_block(net, filters=64, kernel_size=7, strides=1)
+    net = conv_block(net, filters=32, kernel_size=7, strides=1)
+    net = conv_block(net, filters=64, kernel_size=3, strides=2)
     net = conv_block(net, filters=128, kernel_size=3, strides=2)
-    net = conv_block(net, filters=256, kernel_size=3, strides=2)
     # transform
     for _ in range(n_resnet_blocks):
         net = resnet_block(net)
     # decode
-    net = deconv_block(net, filters=128, kernel_size=3, strides=2)
     net = deconv_block(net, filters=64, kernel_size=3, strides=2)
-    net = deconv_block(net, filters=input_shape[-1], kernel_size=7, strides=1, norm=False)
+    net = deconv_block(net, filters=32, kernel_size=3, strides=2)
+    net = conv_block(net, filters=input_shape[-1], kernel_size=7, strides=1, norm=False)
 
     return tfk.models.Model(generator_input, net)
 
