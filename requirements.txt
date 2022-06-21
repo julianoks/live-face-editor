@@ -1,5 +1,5 @@
 tensorflow==1.10.0
 tensorflowjs==0.1.2
 tensorboard==1.11.0
-numpy==1.14.1
+numpy==1.22.0
 pandas==0.22.0
